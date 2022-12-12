@@ -70,7 +70,7 @@ base_packages=(
 	wireless-tools
 	lynx
 	firmware-linux-free
-	btrfs-tools
+	btrfs-progs
 	zsh
 	rsync
 	git-core
