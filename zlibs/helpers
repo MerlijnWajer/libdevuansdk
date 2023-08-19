@@ -188,6 +188,51 @@ chroot-script()
 	req=(R workdir strapdir)
 	ckreq || return 1
 
+	local _divert=""
+	local _path=""
+
+	case "x$1" in
+	x-d)
+		_divert=1
+		shift
+		;;
+	esac
+
+	if [[ "$(dirname "$1")" = "." ]]; then
+		_path="$strapdir"
+	else
+		_path="$(dirname "$1")"
+	fi
+
+	if [[ -n "$_divert" ]]; then
+		# NOTE: tread carefully, potential for recursive calling
+		devprocsys mount "$_path" || { zerr; return 1; }
+		dpkgdivert on "$_path"    || { zerr; return 1; }
+	fi
+
+    chroot-script-intern "$*" || {
+        zerr;
+        if [[ -n "$_divert" ]]; then
+            # NOTE: tread carefully, potential for recursive calling
+            dpkgdivert off "$_path"    || { zerr; return 1; }
+            devprocsys umount "$_path" || { zerr; return 1; }
+        fi
+        return 1;
+    }
+
+	if [[ -n "$_divert" ]]; then
+		# NOTE: tread carefully, potential for recursive calling
+		dpkgdivert off "$_path"    || { zerr; return 1; }
+		devprocsys umount "$_path" || { zerr; return 1; }
+	fi
+}
+
+chroot-script-intern()
+{
+	fn chroot-script-intern "$*"
+	req=(R workdir strapdir)
+	ckreq || return 1
+
 	mkdir -p "$R/log"
 
 	local _divert=""
@@ -209,12 +254,6 @@ chroot-script()
 
 	_script="$(basename "$1")"
 
-	if [[ -n "$_divert" ]]; then
-		# NOTE: tread carefully, potential for recursive calling
-		devprocsys mount "$_path" || { zerr; return 1; }
-		dpkgdivert on "$_path"    || { zerr; return 1; }
-	fi
-
 	sudo sed -i "$_path/$_script" \
 		-e 's@^#!/bin/sh@&\nexport DEBIAN_FRONTEND=noninteractive@' \
 		-e 's@^#!/bin/sh@&\nexport SOURCE_DATE_EPOCH=1610550434@' \
@@ -231,12 +270,6 @@ chroot-script()
 	sudo chmod 0700 "${_path}/tmp/user/0"
 	sudo chmod 0600 "${_path}/tmp/user"
 	sudo chmod 1777 "${_path}/tmp"
-
-	if [[ -n "$_divert" ]]; then
-		# NOTE: tread carefully, potential for recursive calling
-		dpkgdivert off "$_path"    || { zerr; return 1; }
-		devprocsys umount "$_path" || { zerr; return 1; }
-	fi
 
 	sudo rm -rf "$_path/tmp/user"
 	sudo rm -f "$_path/$_script"
