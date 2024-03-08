@@ -60,6 +60,7 @@ bootstrap_complete_base()
 	sudo debootstrap \
 		--keyring="$LIBPATH/extra/devuan-keyring/keyrings/devuan-archive-keyring.gpg" \
 		--include=devuan-keyring,wget,ca-certificates \
+		--exclude=usr-is-merged \
 		--foreign \
 		--arch "$arch" "$release" "$strapdir" "$mirror" || { zerr; return 1; }
 
