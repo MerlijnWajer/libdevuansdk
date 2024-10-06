@@ -67,7 +67,7 @@ image_prepare_qcow2()
 image_format_partitions()
 {
 	fn image_format_partitions
-	req=(bootfs bootpart rootpart)
+	req=(rootfs bootfs bootpart rootpart)
 	ckreq || return 1
 
 	notice "Formatting image partitions"
@@ -138,6 +138,7 @@ image_format_partitions()
 image_connect_raw()
 {
 	fn image_connect_raw
+	req=(parted_type)
 
 	notice "Connecting raw image to loop device"
 
@@ -147,8 +148,14 @@ image_connect_raw()
 		zerr; return 1
 	fi
 
-	bootpart="${loopdevice}p1"
-	rootpart="${loopdevice}p2"
+	case "$parted_type" in
+        none)
+            rootpart="${loopdevice}"
+            ;;
+        *)  bootpart="${loopdevice}p1"
+            rootpart="${loopdevice}p2"
+            ;;
+    esac
 }
 
 image_connect_qcow2()
@@ -167,6 +174,14 @@ image_connect_qcow2()
 	fi
 
 	sudo qemu-nbd --connect="${loopdevice}" "$workdir/${image_name}.qcow2" || { zerr; return 1; }
+}
+
+image_partition_none()
+{
+	fn image_partition_none
+	req=(loopdevice)
+
+	notice "partitioning no-op"
 }
 
 image_partition_dos()
@@ -219,7 +234,7 @@ image_mount()
 	notice "Mounting image to $workdir/mnt"
 
 	mkdir -p "$workdir/mnt"
-	sudo mount "$rootpart" "$workdir/mnt" || { zerr; return 1; }
+	sudo mount "$rootpart" "${=rootmountopts}" "$workdir/mnt" || { zerr; return 1; }
 	act "Mounted root partition"
 
 	if [[ "$bootfs" = none ]]; then
@@ -250,7 +265,7 @@ image_umount()
 image_disconnect_raw()
 {
 	fn image_disconnect_raw
-	req=(loopdevice bootfs rootfs bootpart rootpart)
+	req=(loopdevice bootfs rootfs bootpart rootpart parted_type)
 	ckreq || return 1
 
 	notice "Disconnecting image from $loopdevice"
@@ -271,10 +286,17 @@ image_disconnect_raw()
 	esac
 
 	act "Disconnecting"
-	sudo partx -dv "$loopdevice" >>/dev/null || {
-		die "partx failed to remove $loopdevice"
-		zerr; return 1
-	}
+	case "$parted_type" in
+        none)
+            notice "No partitions to disconnect"
+            ;;
+        *)
+            sudo partx -dv "$loopdevice" >>/dev/null || {
+                die "partx failed to remove $loopdevice"
+                zerr; return 1
+            }
+            ;;
+    esac
 
 	sudo losetup -d "$loopdevice" || {
 		die "losetup failed to remove $loopdevice"

@@ -23,7 +23,8 @@ build_arm_dist()
 	case "$parted_type" in
 	gpt) req+=(gpt_boot gpt_root) ;;
 	dos) req+=(dos_boot dos_root) ;;
-	*) die "Unknown parted_type: $parted_type. Supported is gpt|dos."
+	none) req+=() ;;
+	*) die "Unknown parted_type: $parted_type. Supported is gpt|dos|none."
 		zerr; return 1
 		;;
 	esac
