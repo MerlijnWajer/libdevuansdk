@@ -234,10 +234,12 @@ image_mount()
 	notice "Mounting image to $workdir/mnt"
 
 	mkdir -p "$workdir/mnt"
-	if [[ "$rootmountopts" = none ]]; then
-        sudo mount "$rootpart" "$workdir/mnt" || { zerr; return 1; }
-    else
+    if (( ${+rootmountopts} )); then
+        echo sudo mount "$rootpart" "${=rootmountopts}" "$workdir/mnt" || { zerr; return 1; }
         sudo mount "$rootpart" "${=rootmountopts}" "$workdir/mnt" || { zerr; return 1; }
+    else
+        echo sudo mount "$rootpart" "$workdir/mnt" || { zerr; return 1; }
+        sudo mount "$rootpart" "$workdir/mnt" || { zerr; return 1; }
     fi
 	act "Mounted root partition"
 
